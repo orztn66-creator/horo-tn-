@@ -584,13 +584,24 @@
 
 <div class="container">
 
-<!-- ── HOME ── -->
 <div id="home" class="app-section active">
   <div class="home-card">
     <h2 style="text-align:center;color:var(--gold);margin:0;">ASTRO CLOCK</h2>
     <div id="realTime" class="time-display">00:00:00</div>
     <div id="realDate" style="text-align:center;color:#94a3b8;margin-bottom:15px;">...</div>
-    <!-- manual-box removed -->
+    <div class="manual-box">
+      <div style="text-align:center;font-size:0.8rem;color:var(--gold);margin-bottom:8px;">⚙️ ปรับแต่งฤกษ์ (Manual Override)</div>
+      <div class="lunar-ctrl">
+        <button id="modeKhun" class="btn-toggle active" onclick="setPhase('ขึ้น')">ขึ้น</button>
+        <button id="modeRam" class="btn-toggle" onclick="setPhase('แรม')">แรม</button>
+      </div>
+      <div class="lunar-ctrl">
+        <button class="btn-lunar" onclick="adjustDay(-1)">-</button>
+        <div style="min-width:80px;text-align:center;font-size:1.2rem;font-weight:bold;"><span id="displayDay">1</span> ค่ำ</div>
+        <button class="btn-lunar" onclick="adjustDay(1)">+</button>
+      </div>
+      <button class="big-btn" style="background:#334155;font-size:0.85rem;margin-top:10px;padding:8px;" onclick="resetAuto()">🔄 รีเซ็ตเป็นเวลาจริง (Auto)</button>
+    </div>
     <div class="info-grid">
       <div class="info-item" style="grid-column:span 2;border-color:var(--gold);">
         <span class="info-label">ดิถี/กาลปัจจุบัน</span>
@@ -9160,5 +9171,811 @@ function goToSubPage()  { if(typeof m5SwitchPage==='function') m5SwitchPage(2); 
 function goBackToMain() { if(typeof m5SwitchPage==='function') m5SwitchPage(1); }
 
 </script>
+
+<!-- ================================================================
+     SCRIPTURE BRIDGE v2.0 — วางก่อนปิด </body> ใน external_v10.html
+     เชื่อมต่อ Engine คัมภีร์เข้า UI เดิม โดยไม่แตะ HTML/CSS แม้แต่บรรทัดเดียว
+     ================================================================ -->
+<script>
+(function (win) {
+    'use strict';
+
+    /* ============================================================
+       SECTION A — EMBEDDED JSON DATABASES (Single Source of Truth)
+       ดึงตรงจาก scripture_database.json, astrology_knowledge.json,
+       scripture_rules.json, predictions.json ที่แนบมา
+    ============================================================ */
+    var DB = {
+
+        /* ── อินทภาส-บาทจันทร์ ── */
+        khat_rules: {
+            "1": { title:"ฆาตอายุ",    label:"มฤตยูทับตัวตน",    severity:"Critical",
+                   effect:"ระวังการเจ็บป่วยหนัก อุบัติเหตุเลือดตกยางออก หรือการเปลี่ยนแปลงวิถีชีวิตครั้งใหญ่",
+                   remedy:"ให้ทำบุญปล่อยสัตว์ใหญ่ หรือบริจาคโลหิตเพื่อแก้เคล็ดเรื่องเสียเลือดเสียเนื้อ" },
+            "3": { title:"ฆาตอริ",     label:"มฤตยูทับศัตรู",    severity:"High",
+                   effect:"มีศัตรูปองร้าย คดีความยืดเยื้อ หรือถูกกลั่นแกล้งในหน้าที่การงาน",
+                   remedy:"ให้ถวายหลอดไฟหรือน้ำมันตะเกียง เพื่อให้มีปัญญาฝ่าฟันอุปสรรค" },
+            "5": { title:"ฆาตทรัพย์",  label:"มฤตยูทับเงินทอง",  severity:"High",
+                   effect:"ระวังทรัพย์สินเสียหาย ถูกโกง หรือมีเหตุให้เสียเงินก้อนใหญ่โดยไม่คาดฝัน",
+                   remedy:"ให้ทำบุญถวายสังฆทานปัจจัยพื้นฐาน หรือร่วมสร้างศาสนวัตถุ" },
+            "7": { title:"ฆาตวิบัติ",  label:"มฤตยูทับความล้มเหลว", severity:"Critical",
+                   effect:"เป็นเกณฑ์หนักที่สุดใน ๖ ฆาต ระวังบ้านเรือนเสียหาย ต้องย้ายที่อยู่กะทันหัน สิ่งที่หวังจะพังกลางคัน",
+                   remedy:"ให้ร่วมทำบุญโลงศพแก่ศพไม่มีญาติ หรือล้างป่าช้า เพื่อแก้เคล็ดวิบัติ" },
+            "8": { title:"ฆาตโจร",     label:"มฤตยูทับโจร",      severity:"Medium",
+                   effect:"ระวังถูกปล้น ขโมยขึ้นบ้าน หรือเสียรู้เล่ห์เหลี่ยมคนพาล",
+                   remedy:"ให้ทำบุญบริจาคทานด้วยความเมตตาและความระมัดระวัง" },
+            "0": { title:"ฆาตอัคคี",   label:"มฤตยูทับอัคคี",    severity:"High",
+                   effect:"ระวังไฟไหม้ ความร้อนใจ หรือเรื่องอื้อฉาวที่ลุกลามเหมือนไฟลามทุ่ง",
+                   remedy:"ให้บริจาคน้ำดื่มหรือสร้างแท็งก์น้ำวัด เพื่อดับร้อนดับเคราะห์" }
+        },
+
+        /* ── นวางค์พิษ (บาทจันทร์) ── */
+        nawayang_toxic: {
+            1: "พิษนาค — ให้โทษทางทรัพย์ ระวังเงินรั่วไหล",
+            4: "พิษครุฑ — ให้โทษทางเกียรติยศ ระวังชื่อเสียงเสียหาย",
+            7: "พิษสุนัข — ให้โทษทางสุขภาพและอุบัติเหตุ",
+            9: "พิษทั่วไป — ก่อความวุ่นวายและสับสน"
+        },
+
+        /* ── ตารางเลขประจำอักษร (คัมภีร์ยามวิเศษจินดา) ── */
+        nam_table: {
+            'ก':1,'ข':1,'ค':1,'ฆ':1,'ง':1,'ฃ':1,'ฅ':1,
+            'จ':2,'ฉ':2,'ช':2,'ซ':2,'ฌ':2,'ญ':2,
+            'ด':3,'ต':3,'ถ':3,'ท':3,'ธ':3,'น':3,'ฎ':3,'ฏ':3,'ฐ':3,'ฑ':3,'ฒ':3,'ณ':3,
+            'บ':4,'ป':4,'ผ':4,'ฝ':4,'พ':4,'ฟ':4,'ภ':4,'ม':4,'เ':4,'แ':4,
+            'ย':5,'ร':5,'ล':5,'ว':5,'โ':5,'ใ':5,'ไ':5,
+            'ศ':6,'ษ':6,'ส':6,'ห':6,'ฬ':6,'อ':6,'ฮ':6,
+            'ฝ':4
+        },
+
+        /* ── ยามวิเศษจินดา — ลำดับดาวตามคัมภีร์ ── */
+        yama_day:   [1, 6, 4, 2, 7, 5, 3],   // เริ่ม 06:00
+        yama_night: [2, 7, 5, 8, 1, 6, 4],   // เริ่ม 18:00
+        yama_planet_meanings: {
+            1: { name:"อาทิตย์", predict:"ประสบชัยชนะ มีลาภจากผู้ใหญ่ เรื่องที่ขอจะสำเร็จ",           good:true  },
+            2: { name:"จันทร์",  predict:"จะได้รับข่าวดีหรือของขวัญ มิตรสหายช่วยเหลือ",              good:true  },
+            3: { name:"อังคาร", predict:"ระวังการทะเลาะวิวาท อุบัติเหตุ และความขัดแย้ง",             good:false },
+            4: { name:"พุธ",    predict:"การเจรจาค้าขายจะได้ผลดีมาก เหมาะทำสัญญา",                 good:true  },
+            5: { name:"พฤหัส", predict:"เทวดาคุ้มครอง สิ่งศักดิ์สิทธิ์ให้โชค มีบุญเก่าหนุนนำ",    good:true  },
+            6: { name:"ศุกร์",  predict:"มีความสุขสมหวังในสิ่งที่รอคอย เหมาะเรื่องความรัก",         good:true  },
+            7: { name:"เสาร์", predict:"เหนื่อยยากและต้องใช้ความอดทนสูง ผลมาช้าแต่แน่นอน",         good:false },
+            8: { name:"ราหู",  predict:"ระวังความสับสน การถูกหลอกลวง และเรื่องลึกลับซับซ้อน",       good:false }
+        },
+
+        /* ── กลยุทธ์พิไชยสงคราม (จาก scripture_database.json + engine_pichai_remedy.js) ── */
+        pichai_strategy: {
+            1: { counter:5, remedy:"ใช้พฤหัส(ปัญญา) ข่มอาทิตย์(มานะ) → ทำบุญถวายยาหรือสังฆทาน",    dir:"ตะวันตก" },
+            2: { counter:4, remedy:"ใช้พุธ(เจรจา) ข่มจันทร์(รวนเร) → พิมพ์หนังสือธรรมะแจก",         dir:"ใต้" },
+            3: { counter:6, remedy:"ใช้ศุกร์(ความอ่อนโยน) ข่มอังคาร(โทสะ) → ถวายดอกไม้หอมหรือน้ำดื่ม", dir:"เหนือ" },
+            4: { counter:2, remedy:"ใช้จันทร์(เมตตา) ข่มพุธ(สับสน) → บริจาคทานแก่สตรีหรือเด็ก",      dir:"ตะวันออกเฉียงเหนือ" },
+            5: { counter:3, remedy:"ใช้อังคาร(พลัง) ข่มพฤหัส(ดื้อรั้น) → บริจาคเลือดหรือเครื่องมือแพทย์", dir:"ตะวันตกเฉียงเหนือ" },
+            6: { counter:8, remedy:"ใช้ราหู(การเปลี่ยนแปลง) ข่มศุกร์(กิเลส) → ทำบุญล้างป่าช้าหรือศพไร้ญาติ", dir:"เหนือ" },
+            7: { counter:1, remedy:"ใช้อาทิตย์(แสงสว่าง) ข่มเสาร์(มืดมน) → ทำบุญโคมไฟหรือค่าไฟวัด",   dir:"ตะวันตกเฉียงใต้" },
+            8: { counter:6, remedy:"ใช้ศุกร์(ความสุนทรีย์) ข่มราหู(ลุ่มหลง) → ปล่อยสัตว์ที่กำลังจะถูกฆ่า", dir:"ตะวันออกเฉียงใต้" }
+        },
+
+        /* ── ชื่อดาว ── */
+        planet_names: {1:"อาทิตย์",2:"จันทร์",3:"อังคาร",4:"พุธ",5:"พฤหัสบดี",6:"ศุกร์",7:"เสาร์",8:"ราหู"},
+
+        /* ── ทักษาปกรณ์ ── */
+        thaksa_labels:    ['บริวาร','อายุ','เดช','ศรี','มูละ','อุตสาหะ','มนตรี','กาลกิณี'],
+        thaksa_planet_seq:[1, 2, 3, 4, 7, 5, 8, 6],   // ลำดับดาวในทักษา
+
+        /* ── ชันษาจร (predictions.json) ── */
+        chansa_rasi: {
+            1:"เกณฑ์ความกล้าหาญและการบุกเบิก แต่ระวังอารมณ์ร้อนและการตัดสินใจวู่วาม",
+            2:"โดดเด่นด้านทรัพย์สินมั่นคงขึ้น แต่ระวังใช้จ่ายตามใจจนเกินตัว",
+            3:"มีเกณฑ์เดินทาง ติดต่อสื่อสาร จะสำเร็จจากการเข้าสังคม",
+            4:"มุ่งเน้นเรื่องครอบครัวและที่อยู่อาศัย อาจซ่อมบ้านหรือซื้อทรัพย์ชิ้นใหญ่",
+            5:"ผู้ใหญ่ให้ความเมตตา มีโอกาสเลื่อนขั้นหรือได้ตำแหน่งสำคัญ",
+            6:"ระวังปัญหาสุขภาพจุกจิก อุปสรรคในที่ทำงาน และคู่แข่งคอยขัดขวาง",
+            7:"โดดเด่นเรื่องความรัก คู่ครอง การเจรจาและหุ้นส่วนจะสำเร็จ",
+            8:"ระวังขัดแย้งผู้ใหญ่ อุบัติเหตุ หรือสูญเสียของรักของหวง",
+            9:"มีโชคจากการเดินทางไกลหรือศึกษาต่อ ครูบาอาจารย์สนับสนุน",
+            10:"ภาระหนัก แบกรับความรับผิดชอบสูง เหนื่อยแต่สำเร็จมั่นคง",
+            11:"มีโชคลาภไม่คาดฝัน ประสบความสำเร็จจากมิตรสหาย",
+            12:"ระวังศัตรูมืด ถูกหลอกลวง หักหลัง ต้องรอบคอบอย่าไว้ใจใครง่ายๆ"
+        }
+    };
+
+    /* ============================================================
+       SECTION B — ENGINE FUNCTIONS (สูตรคำนวณตามคัมภีร์)
+    ============================================================ */
+
+    /**
+     * B1. อินทภาส-บาทจันทร์
+     * สูตรหลัก (engine_inthaphat.js + engine_scripture_logic.js):
+     *   จ.ศ. เกิด = พ.ศ. - 1181
+     *   เศษกำเนิด = จ.ศ.เกิด % 108
+     *   เศษจร    = (เศษกำเนิด + อายุ) % 108
+     *   บาทจันทร์ = เศษ * 4 % 108
+     *   เช็คฆาต  = เศษ % 10  →  {1,3,5,7,8,0} = ฆาต
+     */
+    function calcInthaphat(birthYearBE) {
+        var currentYearBE = getCurrentYearBE();
+        var csBirth   = birthYearBE - 1181;
+        var csCurrent = currentYearBE - 1181;
+        var age       = currentYearBE - birthYearBE;
+
+        var baseReuk  = csBirth % 108;
+        var jornReuk  = (baseReuk + age) % 108;
+        var baseBaht  = (baseReuk * 4) % 108;
+        var jornBaht  = (jornReuk * 4) % 108;
+
+        var baseKey   = String(baseReuk % 10);
+        var jornKey   = String(jornReuk % 10);
+        var baseBahtKey = String(baseBaht % 10);
+        var jornBahtKey = String(jornBaht % 10);
+
+        return {
+            csBirth:csBirth, csCurrent:csCurrent, age:age,
+            baseReuk:baseReuk, jornReuk:jornReuk,
+            baseBaht:baseBaht, jornBaht:jornBaht,
+            baseKey:baseKey, jornKey:jornKey,
+            baseBahtKey:baseBahtKey, jornBahtKey:jornBahtKey,
+            jornKhat:  DB.khat_rules[jornKey]  || null,
+            jornBKhat: DB.khat_rules[jornBahtKey] || null
+        };
+    }
+
+    /**
+     * B2. นวางค์พิษบาทจันทร์
+     * สูตร (engine_inthaphat.js ScriptureInthaphat.calculateBahtDetail):
+     *   1 บาท = 200 ลิปดา, 1 ฤกษ์ = 800 ลิปดา
+     *   nawayang = floor((moonLp % 800) / (800/9)) + 1
+     *   toxic    = nawayang ∈ {1,4,7,9}
+     *   นวางค์ขาด = ราศี ∈ {0,4,8} AND nawayang=9
+     */
+    function calcNawayang(moonLp) {
+        var nawayangRaw = Math.floor((moonLp % 800) / (800 / 9)) + 1;
+        var nawayang    = Math.min(nawayangRaw, 9);
+        var rasi        = Math.floor(moonLp / 1800) % 12;
+        var isKhad      = ([0, 4, 8].indexOf(rasi) !== -1) && (nawayang === 9);
+        var toxic       = DB.nawayang_toxic[nawayang] || null;
+
+        // บาทที่ (1 ฤกษ์ = 4 บาท, 1 บาท = 200 ลิปดา)
+        var baht  = Math.floor((moonLp % 800) / 200) + 1;
+
+        return { nawayang:nawayang, rasi:rasi, isKhad:isKhad, toxic:toxic, baht:baht };
+    }
+
+    /**
+     * B3. ยามวิเศษจินดา
+     * สูตร (engine_yama_jinda.js + scripture_database.json):
+     *   กลางวัน  06:00-18:00  ยามละ 90 นาที → seq = yama_day
+     *   กลางคืน 18:00-06:00  ยามละ 90 นาที → seq = yama_night
+     *   คูณนาม = ตัวเลขประจำอักษรตัวแรก (nam_table)
+     *   เศษ 7  = ((planet * namVal) + deepLayer) % 7  (/0 → 7)
+     */
+    function calcYamaJinda(hour, minute, nameStr) {
+        var totalMin  = hour * 60 + minute;
+        var isDay     = (hour >= 6 && hour < 18);
+        var startMin  = isDay ? 360 : 1080;
+        var diff      = totalMin - startMin;
+        if (diff < 0) diff += 1440;
+
+        var yamaIndex = Math.floor(diff / 90) % 7;
+        var seq       = isDay ? DB.yama_day : DB.yama_night;
+        var planet    = seq[yamaIndex];
+
+        // ชั้นมหานาที (5 ชั้น ชั้นละ 18 นาที)
+        var minInYama = diff % 90;
+        var deepLayer = Math.floor(minInYama / 18) + 1;
+
+        // คูณนาม
+        var firstChar = nameStr ? nameStr.trim().charAt(0) : '';
+        var namVal    = DB.nam_table[firstChar] || 1;
+
+        var finalScore = ((planet * namVal) + deepLayer) % 7;
+        if (finalScore === 0) finalScore = 7;
+
+        var pm = DB.yama_planet_meanings[planet] || { name:'?', predict:'—', good:true };
+
+        return {
+            isDay:isDay, yamaIndex:yamaIndex, planet:planet,
+            deepLayer:deepLayer, namVal:namVal, finalScore:finalScore,
+            planetName:pm.name, predict:pm.predict, isGood:pm.good,
+            timeStr: pad2(hour) + ':' + pad2(minute) + ' น.'
+        };
+    }
+
+    /**
+     * B4. ทักษาจรปีปัจจุบัน
+     * สูตร (engine_summary.js):
+     *   ลำดับดาวทักษา: 1,2,3,4,7,5,8,6 (บริวาร→...→กาลกิณี)
+     *   startIdx = indexOf(birthPlanet) ใน THAKSA_PLANET_SEQ
+     *   จร = shift ตามอายุ % 8
+     */
+    function calcThaksaJorn(birthDOW, birthYearBE) {
+        var currentYearBE  = getCurrentYearBE();
+        var age            = currentYearBE - birthYearBE;
+        var seq            = DB.thaksa_planet_seq;
+        var dayToPlanet    = {0:1,1:2,2:3,3:4,4:5,5:6,6:7};
+        var birthPlanet    = dayToPlanet[birthDOW] || 1;
+        var startIdx       = seq.indexOf(birthPlanet);
+        if (startIdx === -1) startIdx = 0;
+
+        // ทักษาพื้น
+        var baseResult = {};
+        for (var i = 0; i < 8; i++) {
+            baseResult[DB.thaksa_labels[i]] = seq[(startIdx + i) % 8];
+        }
+
+        // ทักษาจร (shift ตามอายุย่าง)
+        var shift       = age % 8;
+        var jornStart   = (startIdx + shift) % 8;
+        var jornResult  = {};
+        for (var j = 0; j < 8; j++) {
+            jornResult[DB.thaksa_labels[j]] = seq[(jornStart + j) % 8];
+        }
+
+        return {
+            age:age,
+            baseBariwan: baseResult['บริวาร'],
+            jornKala: jornResult['กาลกิณี'],
+            jornSri:  jornResult['ศรี'],
+            jornDej:  jornResult['เดช'],
+            jornAyu:  jornResult['อายุ'],
+            jornFull: jornResult,
+            baseFull: baseResult
+        };
+    }
+
+    /**
+     * B5. ชันษาจร (ราศีที่ชันษาจรตกในปีนี้)
+     * สูตร: อายุ % 12 → ราศีที่จร (เริ่มจากราศีลัคนาเกิด)
+     */
+    function calcChansaJorn(birthYearBE, lagnaRasi) {
+        var age   = getCurrentYearBE() - birthYearBE;
+        var rasi  = (lagnaRasi + age) % 12 + 1;   // 1-12
+        return { age:age, rasi:rasi, predict: DB.chansa_rasi[rasi] || '—' };
+    }
+
+    /* ============================================================
+       SECTION C — HTML RENDERERS (สร้าง HTML แสดงผล)
+    ============================================================ */
+
+    /* สีตาม severity */
+    function sevColor(s) {
+        return s === 'Critical' ? '#ef4444' : s === 'High' ? '#f59e0b' : '#22c55e';
+    }
+    function sevBg(s) {
+        return s === 'Critical' ? 'rgba(239,68,68,0.1)' : s === 'High' ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.08)';
+    }
+    function pad2(n) { return String(n).padStart(2, '0'); }
+
+    /* ── C1. Render อินทภาส-บาทจันทร์ ── */
+    function renderIntha(intha, nw) {
+        var hasKhatI  = !!intha.jornKhat;
+        var hasKhatB  = intha.jornBahtKey !== intha.jornKey && !!intha.jornBKhat;
+        var anyKhat   = hasKhatI || hasKhatB;
+
+        var html = '<div class="sb-bridge-block" style="'
+            + 'background:linear-gradient(135deg,#0a0f1e,#14103a);'
+            + 'border:1.5px solid #4f46e5;border-radius:12px;'
+            + 'padding:14px 15px;margin-top:14px;font-size:0.81rem;font-family:inherit;">'
+
+            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;'
+            + 'padding-bottom:8px;border-bottom:1px solid #1e3a5f;">'
+            + '<span style="font-size:1.1rem;">📜</span>'
+            + '<span style="color:#a78bfa;font-weight:700;font-size:0.9rem;">Scripture Bridge — อินทภาส-บาทจันทร์ (ชำระกฎแล้ว)</span>'
+            + '</div>'
+
+            /* ตารางพื้น/จร */
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
+            + '<div style="background:#0f172a;border-radius:7px;padding:9px;">'
+            + '<div style="color:#64748b;font-size:0.7rem;margin-bottom:3px;">🔷 พื้นชะตา (จ.ศ.' + intha.csBirth + ')</div>'
+            + '<div style="color:#fbbf24;font-weight:700;">อินทภาสเศษ ' + intha.baseReuk + '</div>'
+            + '<div style="color:#94a3b8;margin-top:2px;">บาทจันทร์เศษ ' + intha.baseBaht + '</div>'
+            + '</div>'
+            + '<div style="background:#0f172a;border-radius:7px;padding:9px;">'
+            + '<div style="color:#64748b;font-size:0.7rem;margin-bottom:3px;">🔶 ดวงจร อายุ ' + intha.age + ' ปี (จ.ศ.' + intha.csCurrent + ')</div>'
+            + '<div style="color:#fbbf24;font-weight:700;">อินทภาสจร เศษ ' + intha.jornReuk + '</div>'
+            + '<div style="color:#94a3b8;margin-top:2px;">บาทจันทร์จร เศษ ' + intha.jornBaht + '</div>'
+            + '</div>'
+            + '</div>';
+
+        /* ฆาต section */
+        if (anyKhat) {
+            html += '<div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.35);'
+                + 'border-radius:9px;padding:10px;margin-bottom:9px;">'
+                + '<div style="color:#ef4444;font-weight:700;margin-bottom:7px;">⚠️ พบเกณฑ์ฆาตมฤตยูตามคัมภีร์</div>';
+
+            if (hasKhatI) {
+                var ki = intha.jornKhat;
+                html += '<div style="margin-bottom:7px;padding-bottom:7px;border-bottom:1px solid rgba(239,68,68,0.2);">'
+                    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+                    + '<span style="background:' + sevColor(ki.severity) + ';color:#000;font-size:0.68rem;'
+                    + 'padding:1px 7px;border-radius:4px;font-weight:700;">' + ki.severity + '</span>'
+                    + '<b style="color:#fbbf24;">' + ki.title + '</b>'
+                    + '<span style="color:#94a3b8;font-size:0.75rem;">(อินทภาสจร)</span>'
+                    + '</div>'
+                    + '<div style="color:#f1f5f9;line-height:1.6;">' + ki.effect + '</div>'
+                    + '<div style="color:#10b981;font-size:0.76rem;margin-top:3px;">🙏 ' + ki.remedy + '</div>'
+                    + '</div>';
+            }
+            if (hasKhatB) {
+                var kb = intha.jornBKhat;
+                html += '<div>'
+                    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+                    + '<span style="background:' + sevColor(kb.severity) + ';color:#000;font-size:0.68rem;'
+                    + 'padding:1px 7px;border-radius:4px;font-weight:700;">' + kb.severity + '</span>'
+                    + '<b style="color:#fbbf24;">' + kb.title + '</b>'
+                    + '<span style="color:#94a3b8;font-size:0.75rem;">(บาทจันทร์จร)</span>'
+                    + '</div>'
+                    + '<div style="color:#f1f5f9;line-height:1.6;">' + kb.effect + '</div>'
+                    + '<div style="color:#10b981;font-size:0.76rem;margin-top:3px;">🙏 ' + kb.remedy + '</div>'
+                    + '</div>';
+            }
+            html += '</div>';
+        } else {
+            html += '<div style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.3);'
+                + 'border-radius:9px;padding:10px;margin-bottom:9px;color:#10b981;">'
+                + '✅ ไม่พบเกณฑ์ฆาตมฤตยูในดวงจรปีนี้ ชะตาอยู่ในเกณฑ์ปกติ'
+                + '</div>';
+        }
+
+        /* นวางค์พิษ */
+        if (nw) {
+            var nwBad   = nw.toxic || nw.isKhad;
+            var nwColor = nwBad ? '#f59e0b' : '#10b981';
+            html += '<div style="background:#0f172a;border-left:3px solid ' + nwColor + ';'
+                + 'border-radius:0 7px 7px 0;padding:8px 10px;">'
+                + '<div style="display:flex;gap:8px;align-items:center;">'
+                + '<span style="color:#38bdf8;font-size:0.75rem;font-weight:700;">🌙 บาทจันทร์ นวางค์ที่ ' + nw.nawayang + '</span>'
+                + (nw.isKhad ? '<span style="color:#ef4444;font-size:0.75rem;font-weight:700;">⚡ นวางค์ขาด!</span>' : '')
+                + '</div>'
+                + (nw.toxic ? '<div style="color:#f59e0b;margin-top:3px;">⚠️ ' + nw.toxic + '</div>'
+                            : '<div style="color:#10b981;margin-top:3px;">ปกติ ไม่ติดนวางค์พิษ</div>')
+                + '</div>';
+        }
+
+        html += '</div>'; // end sb-bridge-block
+        return html;
+    }
+
+    /* ── C2. Render ยามวิเศษจินดา ── */
+    function renderYama(ym) {
+        var badColor  = ym.isGood ? '#10b981' : '#ef4444';
+        var statusTxt = ym.isGood ? '✅ ยามมงคล' : '⚠️ ยามต้องระวัง';
+
+        return '<div class="sb-bridge-block" style="'
+            + 'background:linear-gradient(135deg,#0a0f1e,#1a0a2e);'
+            + 'border:1.5px solid #7c3aed;border-radius:12px;'
+            + 'padding:14px 15px;margin-top:14px;font-size:0.81rem;font-family:inherit;">'
+
+            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;'
+            + 'padding-bottom:8px;border-bottom:1px solid #2d1a4a;">'
+            + '<span style="font-size:1.1rem;">🔮</span>'
+            + '<span style="color:#c084fc;font-weight:700;font-size:0.9rem;">Scripture Bridge — ยามวิเศษจินดา (ชำระกฎแล้ว)</span>'
+            + '</div>'
+
+            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px;">'
+            + '<div style="background:#0f172a;border-radius:7px;padding:8px;text-align:center;">'
+            + '<div style="color:#64748b;font-size:0.69rem;">⏱ เวลา</div>'
+            + '<div style="color:#fbbf24;font-weight:700;">' + ym.timeStr + '</div>'
+            + '</div>'
+            + '<div style="background:#0f172a;border-radius:7px;padding:8px;text-align:center;">'
+            + '<div style="color:#64748b;font-size:0.69rem;">' + (ym.isDay ? '☀️ กลางวัน' : '🌙 กลางคืน') + ' ยามที่ ' + (ym.yamaIndex + 1) + '</div>'
+            + '<div style="color:#a78bfa;font-weight:700;">' + ym.planetName + '</div>'
+            + '</div>'
+            + '<div style="background:#0f172a;border-radius:7px;padding:8px;text-align:center;">'
+            + '<div style="color:#64748b;font-size:0.69rem;">ชั้น&nbsp;' + ym.deepLayer + '&nbsp;/&nbsp;เศษ&nbsp;' + ym.finalScore + '</div>'
+            + '<div style="color:#38bdf8;font-weight:700;">' + statusTxt + '</div>'
+            + '</div>'
+            + '</div>'
+
+            + '<div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);'
+            + 'border-radius:9px;padding:10px;">'
+            + '<div style="color:' + badColor + ';font-weight:700;margin-bottom:4px;">📖 คำพยากรณ์ยามนี้ (คัมภีร์ยามวิเศษจินดา)</div>'
+            + '<div style="color:#f1f5f9;line-height:1.65;">' + ym.predict + '</div>'
+            + '<div style="color:#64748b;font-size:0.72rem;margin-top:5px;">'
+            + 'สูตร: ดาว ' + ym.planet + ' × นาม ' + ym.namVal + ' + ชั้น ' + ym.deepLayer + ' = เศษ ' + ym.finalScore
+            + '</div>'
+            + '</div>'
+            + '</div>';
+    }
+
+    /* ── C3. Render พิไชยสงคราม ── */
+    function renderPichai(thaksa) {
+        var kalaName   = DB.planet_names[thaksa.jornKala] || '?';
+        var sriName    = DB.planet_names[thaksa.jornSri]  || '?';
+        var dejName    = DB.planet_names[thaksa.jornDej]  || '?';
+        var kalaStrat  = DB.pichai_strategy[thaksa.jornKala] || null;
+        var sriStrat   = DB.pichai_strategy[thaksa.jornSri]  || null;
+
+        var html = '<div class="sb-bridge-block" style="'
+            + 'background:linear-gradient(135deg,#0a0f1e,#1c0a0a);'
+            + 'border:1.5px solid #ef4444;border-radius:12px;'
+            + 'padding:14px 15px;margin-top:14px;font-size:0.81rem;font-family:inherit;">'
+
+            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;'
+            + 'padding-bottom:8px;border-bottom:1px solid #3a1010;">'
+            + '<span style="font-size:1.1rem;">🛡️</span>'
+            + '<span style="color:#fca5a5;font-weight:700;font-size:0.9rem;">Scripture Bridge — พิไชยสงคราม (ชำระกฎแล้ว)</span>'
+            + '</div>'
+
+            /* ดาวสำคัญ 3 ตัว */
+            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:11px;">'
+            + '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:7px;padding:8px;text-align:center;">'
+            + '<div style="color:#64748b;font-size:0.69rem;">⚔️ กาลกิณีจร</div>'
+            + '<div style="color:#ef4444;font-weight:700;">ดาว ' + thaksa.jornKala + ' ' + kalaName + '</div>'
+            + '</div>'
+            + '<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:7px;padding:8px;text-align:center;">'
+            + '<div style="color:#64748b;font-size:0.69rem;">⭐ ศรีจร</div>'
+            + '<div style="color:#10b981;font-weight:700;">ดาว ' + thaksa.jornSri + ' ' + sriName + '</div>'
+            + '</div>'
+            + '<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:7px;padding:8px;text-align:center;">'
+            + '<div style="color:#64748b;font-size:0.69rem;">🔱 เดชจร</div>'
+            + '<div style="color:#fbbf24;font-weight:700;">ดาว ' + thaksa.jornDej + ' ' + dejName + '</div>'
+            + '</div>'
+            + '</div>';
+
+        /* กลยุทธ์แก้กาลกิณี */
+        if (kalaStrat) {
+            html += '<div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.25);'
+                + 'border-radius:9px;padding:10px;margin-bottom:8px;">'
+                + '<div style="color:#fca5a5;font-weight:700;margin-bottom:5px;">'
+                + '🗡️ กลยุทธ์แก้กาลกิณี (ดาว ' + kalaName + ')</div>'
+                + '<div style="color:#f1f5f9;line-height:1.65;">' + kalaStrat.remedy + '</div>'
+                + '<div style="color:#38bdf8;font-size:0.77rem;margin-top:5px;">📍 ทิศมงคล: <b>' + kalaStrat.dir + '</b></div>'
+                + '</div>';
+        }
+
+        /* เสริมดาวศรี */
+        if (sriStrat && thaksa.jornSri !== thaksa.jornKala) {
+            html += '<div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.25);'
+                + 'border-radius:9px;padding:10px;">'
+                + '<div style="color:#6ee7b7;font-weight:700;margin-bottom:5px;">'
+                + '✨ เสริมดาวศรี (ดาว ' + sriName + ')</div>'
+                + '<div style="color:#94a3b8;line-height:1.65;">' + sriStrat.remedy + '</div>'
+                + '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    /* ── C4. Render สรุปรวม (เมนู 9 / sp_summary_display) ── */
+    function renderSummary(intha, nw, thaksa, chansa) {
+        var khatI     = intha.jornKhat;
+        var kalaStrat = DB.pichai_strategy[thaksa.jornKala] || null;
+        var kalaName  = DB.planet_names[thaksa.jornKala] || '?';
+        var sriName   = DB.planet_names[thaksa.jornSri]  || '?';
+
+        var overallBad = khatI && (khatI.severity === 'Critical' || khatI.severity === 'High');
+        var statusTxt  = overallBad ? '⚠️ ปีนี้มีเกณฑ์ต้องระวัง' : '✅ ภาพรวมปีนี้อยู่ในเกณฑ์ดี';
+        var statusCol  = khatI && khatI.severity === 'Critical' ? '#ef4444' :
+                         khatI && khatI.severity === 'High'     ? '#f59e0b' : '#10b981';
+
+        return '<div class="sb-bridge-block" style="'
+            + 'background:linear-gradient(135deg,#0a0f1e,#0a1a0a);'
+            + 'border:2px solid #10b981;border-radius:14px;'
+            + 'padding:16px;margin-top:16px;font-size:0.81rem;font-family:inherit;">'
+
+            + '<div style="text-align:center;margin-bottom:13px;">'
+            + '<div style="color:#10b981;font-weight:700;font-size:0.95rem;">📿 สรุปคำพยากรณ์ตามคัมภีร์โบราณ (Scripture Bridge v2.0)</div>'
+            + '<div style="color:' + statusCol + ';font-size:1rem;font-weight:700;margin-top:5px;">' + statusTxt + '</div>'
+            + '</div>'
+
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:11px;">'
+
+            /* อินทภาส */
+            + '<div style="background:#0f172a;border-radius:9px;padding:10px;">'
+            + '<div style="color:#a78bfa;font-weight:700;margin-bottom:6px;">📜 อินทภาส-บาทจันทร์</div>'
+            + '<div style="color:#fbbf24;">เศษจร: ' + intha.jornReuk + ' | บาท: ' + intha.jornBaht + '</div>'
+            + (khatI
+                ? '<div style="color:#ef4444;margin-top:4px;line-height:1.55;">⚠️ ' + khatI.title + '</div>'
+                + '<div style="color:#f1f5f9;font-size:0.77rem;margin-top:3px;line-height:1.55;">' + khatI.effect + '</div>'
+                + '<div style="color:#10b981;font-size:0.74rem;margin-top:3px;">🙏 ' + khatI.remedy + '</div>'
+                : '<div style="color:#10b981;margin-top:5px;">✅ ไม่ติดฆาตมฤตยู</div>')
+            + '</div>'
+
+            /* พิไชยสงคราม */
+            + '<div style="background:#0f172a;border-radius:9px;padding:10px;">'
+            + '<div style="color:#fca5a5;font-weight:700;margin-bottom:6px;">🛡️ พิไชยสงคราม</div>'
+            + '<div style="color:#ef4444;">กาลกิณีจร: ' + kalaName + '</div>'
+            + '<div style="color:#10b981;">ศรีจร: ' + sriName + '</div>'
+            + (kalaStrat ? '<div style="color:#38bdf8;font-size:0.76rem;margin-top:4px;">📍 ' + kalaStrat.dir + '</div>' : '')
+            + '</div>'
+            + '</div>'
+
+            /* นวางค์ */
+            + (nw ? '<div style="background:#0f172a;border-radius:9px;padding:10px;margin-bottom:11px;">'
+                + '<div style="color:#38bdf8;font-weight:700;margin-bottom:4px;">🌙 บาทจันทร์ นวางค์ที่ ' + nw.nawayang + '</div>'
+                + (nw.isKhad ? '<div style="color:#ef4444;">⚡ นวางค์ขาด — ระวังอุบัติเหตุฉับพลัน</div>' : '')
+                + (nw.toxic  ? '<div style="color:#f59e0b;">⚠️ ' + nw.toxic + '</div>'
+                             : '<div style="color:#10b981;">ปกติ ไม่ติดนวางค์พิษ</div>')
+                + '</div>' : '')
+
+            /* ชันษาจร */
+            + (chansa ? '<div style="background:#0f172a;border-radius:9px;padding:10px;margin-bottom:11px;">'
+                + '<div style="color:#c084fc;font-weight:700;margin-bottom:4px;">🪐 ชันษาจร อายุ ' + chansa.age + ' ปี (ราศีที่ ' + chansa.rasi + ')</div>'
+                + '<div style="color:#94a3b8;line-height:1.6;">' + chansa.predict + '</div>'
+                + '</div>' : '')
+
+            /* วิธีแก้เคล็ด */
+            + (kalaStrat ? '<div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);'
+                + 'border-radius:9px;padding:10px;">'
+                + '<div style="color:#fca5a5;font-weight:700;margin-bottom:5px;">📖 วิธีแก้เคล็ดตามคัมภีร์พิไชยสงคราม</div>'
+                + '<div style="color:#f1f5f9;line-height:1.65;">' + kalaStrat.remedy + '</div>'
+                + '</div>' : '')
+
+            + '</div>';
+    }
+
+    /* ============================================================
+       SECTION D — HELPERS & DATA ACCESS
+    ============================================================ */
+
+    function getCurrentYearBE() {
+        return new Date().getFullYear() + 543;
+    }
+
+    function getBirthData() {
+        var d = win.currentAstroData;
+        return d || null;
+    }
+
+    function getMoonLp() {
+        var d = getBirthData();
+        if (!d || !d.pPos) return null;
+        var moon = null;
+        for (var i = 0; i < d.pPos.length; i++) {
+            if (d.pPos[i].id === '๒') { moon = d.pPos[i]; break; }
+        }
+        return moon ? moon.lp : null;
+    }
+
+    function getLagnaRasi() {
+        var d = getBirthData();
+        if (!d || !d.pPos) return 0;
+        var lagna = null;
+        for (var i = 0; i < d.pPos.length; i++) {
+            if (d.pPos[i].id === 'ล') { lagna = d.pPos[i]; break; }
+        }
+        return lagna ? (lagna.r || 0) : 0;
+    }
+
+    function getBirthDOW(y_be, m, day) {
+        return new Date((y_be - 543), m - 1, day).getDay();
+    }
+
+    /* inject หรือ replace .sb-bridge-block ใน element */
+    function injectInto(id, html, append) {
+        var el = document.getElementById(id);
+        if (!el) return false;
+        var old = el.querySelector('.sb-bridge-block');
+        if (old) { old.outerHTML = html; return true; }
+        if (append) {
+            el.insertAdjacentHTML('beforeend', html);
+        } else {
+            el.insertAdjacentHTML('afterbegin', html);
+        }
+        return true;
+    }
+
+    /* ============================================================
+       SECTION E — RUN FUNCTIONS (ฟังก์ชันหลักสำหรับแต่ละเมนู)
+    ============================================================ */
+
+    function runInthaphat() {
+        var d = getBirthData();
+        if (!d) return;
+        var intha = calcInthaphat(d.y);
+        var moonLp = getMoonLp();
+        var nw = moonLp !== null ? calcNawayang(moonLp) : null;
+        var html = renderIntha(intha, nw);
+
+        /* เมนู 5 inthaphatRes */
+        var elR = document.getElementById('inthaphatRes');
+        if (elR) {
+            elR.style.display = 'block';
+            injectInto('inthaphatRes', html, true);
+        }
+        /* เมนู 11 fullInthaPredict */
+        injectInto('fullInthaPredict', html, true);
+
+        win.BRIDGE_LAST_INTHA = { intha: intha, nw: nw };
+        tryPushCalc('menu5_bridge', { intha: intha, nw: nw });
+    }
+
+    function runYama() {
+        var now  = new Date();
+        var hour = now.getHours();
+        var min  = now.getMinutes();
+
+        /* ดึงเวลาจาก yamTime input ถ้าผู้ใช้กรอก */
+        var tEl = document.getElementById('yamTime');
+        if (tEl && tEl.value) {
+            var parts = tEl.value.split(':');
+            hour = parseInt(parts[0]) || hour;
+            min  = parseInt(parts[1]) || min;
+        }
+
+        var nameEl = document.getElementById('yamName');
+        var nameStr = (nameEl && nameEl.value) ? nameEl.value : '';
+
+        var ym = calcYamaJinda(hour, min, nameStr);
+        var html = renderYama(ym);
+
+        var elY = document.getElementById('yamRes');
+        if (elY) {
+            elY.style.display = 'block';
+            injectInto('yamRes', html, true);
+        }
+        win.BRIDGE_LAST_YAMA = ym;
+    }
+
+    function runPichai() {
+        var d = getBirthData();
+        if (!d) return;
+        var dow    = getBirthDOW(d.y, d.m, d.d);
+        var thaksa = calcThaksaJorn(dow, d.y);
+        var html   = renderPichai(thaksa);
+
+        injectInto('phichaiContent71', html, true);
+        win.BRIDGE_LAST_PICHAI = thaksa;
+        tryPushCalc('menu7_bridge', { thaksa: thaksa });
+    }
+
+    function runSummary() {
+        var d = getBirthData();
+        if (!d) return;
+        var intha  = calcInthaphat(d.y);
+        var moonLp = getMoonLp();
+        var nw     = moonLp !== null ? calcNawayang(moonLp) : null;
+        var dow    = getBirthDOW(d.y, d.m, d.d);
+        var thaksa = calcThaksaJorn(dow, d.y);
+        var lagnaR = getLagnaRasi();
+        var chansa = calcChansaJorn(d.y, lagnaR);
+        var html   = renderSummary(intha, nw, thaksa, chansa);
+
+        /* เมนู 9 sp_summary_display */
+        injectInto('sp_summary_display', html, true);
+
+        /* เมนู 9 m9area_s4 (section อินทภาส) */
+        var s4 = document.getElementById('m9area_s4');
+        if (s4) {
+            var khatI = intha.jornKhat;
+            s4.innerHTML = khatI
+                ? '<div style="font-size:0.8rem;color:#ef4444;padding:4px;">⚠️ ' + khatI.title + ': ' + khatI.effect + '</div>'
+                : '<div style="font-size:0.8rem;color:#10b981;padding:4px;">✅ ไม่ติดฆาตมฤตยูปีนี้</div>';
+        }
+
+        win.BRIDGE_LAST_SUMMARY = { intha: intha, nw: nw, thaksa: thaksa, chansa: chansa };
+        tryPushCalc('menu9_bridge', { intha: intha, thaksa: thaksa });
+    }
+
+    function runAll() {
+        runInthaphat();
+        runYama();
+        runPichai();
+        runSummary();
+    }
+
+    function tryPushCalc(key, data) {
+        if (typeof win.pushCalcResult === 'function') {
+            win.pushCalcResult(key, data);
+        }
+    }
+
+    /* ============================================================
+       SECTION F — FUNCTION HOOKS (ดักจับฟังก์ชันเดิม)
+    ============================================================ */
+
+    function hookOnce(fnName, afterFn, delayMs) {
+        var flag = '_sb_hooked_' + fnName;
+        if (win[flag]) return;
+        if (typeof win[fnName] !== 'function') return;
+        var orig = win[fnName];
+        win[fnName] = function () {
+            var result = orig.apply(this, arguments);
+            setTimeout(afterFn, delayMs || 150);
+            return result;
+        };
+        win[flag] = true;
+    }
+
+    function installHooks() {
+        /* เมนู 4 — ผูกดวง (คำนวณพื้นชะตา) */
+        hookOnce('calculateSuriyayartWithFeedback', function () {
+            runInthaphat();
+            runPichai();
+            runSummary();
+        }, 350);
+
+        /* เมนู 5 หน้า 1 — บันทึกดาวจร */
+        hookOnce('finalizeData', function () {
+            runInthaphat();
+        }, 150);
+
+        /* เมนู 5 หน้า 1 — คำนวณอัตโนมัติ */
+        hookOnce('autoCalculate', function () {
+            runInthaphat();
+        }, 250);
+
+        /* เมนู 5 หน้า 3 — หลักอิน-จันทร์ */
+        hookOnce('hlikCalculate', function () {
+            runInthaphat();
+        }, 150);
+
+        /* เมนู 6 — รีเฟรชกาลชำระ */
+        hookOnce('renderMenu6', function () {
+            runInthaphat();
+            runPichai();
+        }, 250);
+
+        /* เมนู 7 — พิไชยสงคราม */
+        hookOnce('calculatePhichai57', function () {
+            runPichai();
+        }, 200);
+
+        hookOnce('updatePhichai57Dashboard', function () {
+            runPichai();
+        }, 200);
+
+        /* เมนู 8 — ยาม */
+        hookOnce('executeYam', function () {
+            runYama();
+        }, 80);
+
+        /* เมนู 9 — รีเฟรชสรุป */
+        hookOnce('updateMenu9', function () {
+            runSummary();
+        }, 250);
+
+        /* เมนู 5 หน้า 2 — Scripture Processor */
+        hookOnce('spRunMasterEngine', function () {
+            runSummary();
+        }, 250);
+
+        /* เมนู 10 — Dashboard */
+        hookOnce('renderDashboard', function () {
+            runSummary();
+        }, 300);
+    }
+
+    /* ============================================================
+       SECTION G — GLOBAL EXPOSE & INIT
+    ============================================================ */
+
+    win.ScriptureBridge = {
+        runInthaphat : runInthaphat,
+        runYama      : runYama,
+        runPichai    : runPichai,
+        runSummary   : runSummary,
+        runAll       : runAll,
+        DB           : DB,
+        calcInthaphat: calcInthaphat,
+        calcNawayang : calcNawayang,
+        calcYamaJinda: calcYamaJinda,
+        calcThaksaJorn:calcThaksaJorn,
+        version      : '2.0'
+    };
+
+    /* รอ DOM + scripts เดิมพร้อมทั้งหมดก่อน hook */
+    function init() {
+        installHooks();
+        console.log('[ScriptureBridge v2.0] ✅ โหลดสำเร็จ — Hook ' + [
+            'calculateSuriyayartWithFeedback','finalizeData','autoCalculate',
+            'hlikCalculate','renderMenu6','calculatePhichai57',
+            'updatePhichai57Dashboard','executeYam','updateMenu9',
+            'spRunMasterEngine','renderDashboard'
+        ].length + ' ฟังก์ชัน');
+        console.log('[ScriptureBridge] ใช้คำสั่ง ScriptureBridge.runAll() เพื่อสั่งรันทันที');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(init, 600);
+        });
+    } else {
+        setTimeout(init, 600);
+    }
+
+})(window);
+</script>
+
 </body>
 </html>
